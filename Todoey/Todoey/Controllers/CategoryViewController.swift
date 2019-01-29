@@ -7,42 +7,59 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
+import SwipeCellKit
+import ChameleonFramework
 
-class CategoryViewController: UITableViewController {
+class CategoryViewController: SwipTableViewController{
     
-    var categoryArray = [Category]()
+    let realm = try! Realm()
     
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
-
+    var categories: Results<Category>?
+ 
     override func viewDidLoad() {
         super.viewDidLoad()
         
         loadCategories()
-
+        
+        tableView.separatorStyle = .none
+        
+       
     }
     //MARK: - Tableview DataSource Methods
 
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return categoryArray.count
+        return categories?.count ?? 1
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
-        let category = categoryArray[indexPath.row]
+        if let category = categories?[indexPath.row]{
+            
+            cell.textLabel?.text = category.name
+            
+            guard let categoryColor = UIColor(hexString: category.colour ) else { fatalError()}
+            
+            cell.backgroundColor = categoryColor
+            
+            cell.textLabel?.textColor = ContrastColorOf(categoryColor, returnFlat: true)
+        }
+
         
-        cell.textLabel?.text = category.name
+        
         
         return cell
     }
     
     //MARK: - Data Manipulation Methods
     
-    func saveCategory()  {
+    func save(category : Category)  {
         do{
-            try context.save()
+            try realm.write {
+                realm.add(category)
+            }
         }catch{
             print("Error saving context \(error)")
         }
@@ -52,14 +69,22 @@ class CategoryViewController: UITableViewController {
     
     func loadCategories(){
         
-        let request : NSFetchRequest<Category> = Category.fetchRequest()
-        
-        do{
-           categoryArray =  try context.fetch(request)
-        }catch{
-            print("Error fetching data from context \(error)")
-        }
+        categories = realm.objects(Category.self)
+
         tableView.reloadData()
+    }
+    
+    //MARK: - Delete Data From Swipe
+    
+    override func updateModel(at indexPath: IndexPath) {
+        do{
+            try self.realm.write {
+                
+                self.realm.delete(self.categories![indexPath.row])
+                
+            }}catch{
+                print("Error saving done status \(error)")
+        }
     }
     
     //MARK: - Add new Categories
@@ -72,12 +97,12 @@ class CategoryViewController: UITableViewController {
         
         let action = UIAlertAction(title: "Add Category", style: .default) { (action) in
             
-            let newCategory = Category(context: self.context)
+            let newCategory = Category()
             
             newCategory.name = textField.text!
-            
-            self.categoryArray.append(newCategory)
-            self.saveCategory()
+            newCategory.colour = UIColor.randomFlat.hexValue()
+
+            self.save(category: newCategory)
         }
         
         alert.addTextField { (alertTextField) in
@@ -101,7 +126,8 @@ class CategoryViewController: UITableViewController {
         let destinationVC = segue.destination as! TodoListViewController
         
         if let indexPath = tableView.indexPathForSelectedRow{
-            destinationVC.selectedCategory = categoryArray[indexPath.row]
+            destinationVC.selectedCategory = categories?[indexPath.row]
         }
     }
 }
+
