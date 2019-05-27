@@ -1,6 +1,0 @@
-build/
-xcuserdata/
-*.xcuserstate
-.build
-.DS_Store
-TestCredentials.swift
